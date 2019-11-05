@@ -596,6 +596,7 @@ Usage: $script [options] <file(s)/dir(s)/git hash(es)> | <set 1> <set 2> | <repo
                              cloc-diff.xsl if --diff is also given).
                              This switch forces --xml on.
    --yaml                    Write the results in YAML.
+   --no-sum                  Do not include SUM for output.
 
 ";
 #  Help information for options not yet implemented:
@@ -696,6 +697,7 @@ my (
     $opt_file_encoding        ,
     $opt_docstring_as_code    ,
     $opt_stat                 ,
+    $opt_no_sum                   ,
    );
 
 my $getopt_success = GetOptions(             # {{{1
@@ -789,6 +791,7 @@ my $getopt_success = GetOptions(             # {{{1
    "file_encoding|file-encoding=s"           => \$opt_file_encoding       ,
    "docstring_as_code|docstring-as-code"     => \$opt_docstring_as_code   ,
    "stat"                                    => \$opt_stat                ,
+   "no-sum"                                  => \$opt_no_sum              ,
   );
 # 1}}}
 $config_file = $opt_config_file if defined $opt_config_file;
@@ -880,6 +883,7 @@ load_from_config_file($config_file,          # {{{2
                                                 \$opt_file_encoding       ,
                                                 \$opt_docstring_as_code   ,
                                                 \$opt_stat                ,
+                                                \$opt_no_sum              ,
 );  # 2}}} Not pretty.  Not at all.
 if ($opt_version) {
     printf "$VERSION\n";
@@ -920,6 +924,7 @@ $opt_ignore_case       = 0  unless $opt_ignore_case;
 $opt_ignore_case_ext   = 0  unless $opt_ignore_case_ext;
 $opt_lang_no_ext       = 0  unless $opt_lang_no_ext;
 $opt_follow_links      = 0  unless $opt_follow_links;
+$opt_no_sum            = 0  unless $opt_no_sum;
 if (defined $opt_diff_timeout) {
     # if defined but with a value of <= 0, set to 2^31 seconds = 68 years
     $opt_diff_timeout = 2**31 unless $opt_diff_timeout > 0;
@@ -3988,29 +3993,31 @@ sub generate_report {                        # {{{1
             }
         }
     } elsif ($opt_csv) {
-        my @entries = ();
-        if ($opt_by_file) {
-            push @entries, "SUM";
-            push @entries, "";
-        } else {
-            push @entries, $sum_files;
-            push @entries, "SUM";
+        if (!$opt_no_sum) {
+            my @entries = ();
+            if ($opt_by_file) {
+                push @entries, "SUM";
+                push @entries, "";
+            } else {
+                push @entries, $sum_files;
+                push @entries, "SUM";
+            }
+            if ($opt_by_percent) {
+                my $DEN = compute_denominator($opt_by_percent    ,
+                              $sum_code, $sum_comment, $sum_blank);
+                push @entries, sprintf("%.2f", $sum_blank   / $DEN * 100);
+                push @entries, sprintf("%.2f", $sum_comment / $DEN * 100);
+            } else {
+                push @entries, $sum_blank;
+                push @entries, $sum_comment;
+            }
+            push @entries, $sum_code;
+            if ($opt_3) {
+                push @entries, $sum_scaled;
+                push @entries, $avg_scale ;
+            }
+            push @results, join(",", @entries);
         }
-        if ($opt_by_percent) {
-            my $DEN = compute_denominator($opt_by_percent    ,
-                          $sum_code, $sum_comment, $sum_blank);
-            push @entries, sprintf("%.2f", $sum_blank   / $DEN * 100);
-            push @entries, sprintf("%.2f", $sum_comment / $DEN * 100);
-        } else {
-            push @entries, $sum_blank;
-            push @entries, $sum_comment;
-        }
-        push @entries, $sum_code;
-        if ($opt_3) {
-            push @entries, $sum_scaled;
-            push @entries, $avg_scale ;
-        }
-        push @results, join(",", @entries);
     } else {
 
         if ($BY_FILE) {
